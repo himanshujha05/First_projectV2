@@ -6,3 +6,9 @@ app/build/
 local.properties
 /captures/
 /.cxx/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.melos_tool/
+.metadata
