@@ -1,1 +1,1 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"peak-sunset-461808-n2","configurations":{"web":"1:102032978405:web:c5f409435b872328bf7f0c"}}}}}}
+{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"peak-sunset-461808-n2","configurations":{"macos":"1:102032978405:ios:be936e2b6fcefc53bf7f0c"}}},"macos":{"default":{"projectId":"peak-sunset-461808-n2","appId":"1:102032978405:ios:be936e2b6fcefc53bf7f0c","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}}}}}

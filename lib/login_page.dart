@@ -66,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final user = await AuthService().signInWithGoogle(); // ✅ fixed
-      if (user != null && mounted) {
+      if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomePage()),

@@ -15,46 +15,254 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/background.jpg'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.30),
-                Colors.black.withOpacity(0.70),
-              ],
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // Background
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/background.jpg'),
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAppBar(context),
-                  const SizedBox(height: 30),
-                  _buildAnimatedTitle(),
-                  const SizedBox(height: 30),
-                  _buildActionButtons(context),
-                  const SizedBox(height: 30),
-                  _buildTodaysIntake(context),
-                  const SizedBox(height: 25),
-                  _buildNutrientsSection(context),
-                  const SizedBox(height: 25),
-                  _buildRecommendedNearby(context),
-                  const SizedBox(height: 30),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.25),
+                  Colors.black.withOpacity(0.70),
                 ],
               ),
             ),
+          ),
+
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: _HeaderBar()),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: _GreetingTitle()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                SliverToBoxAdapter(child: _QuickActions()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+
+                // Bigger ring card
+                SliverToBoxAdapter(child: _CalorieRingCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+
+                // NEW: Water meter
+                SliverToBoxAdapter(child: _WaterCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+
+                // Nutrients
+                SliverToBoxAdapter(child: _NutrientsCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+
+                // NEW: Protein chart
+                SliverToBoxAdapter(child: _ProteinChartCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+
+                // Nearby
+                SliverToBoxAdapter(child: _NearbyCard()),
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ------------------------------ Header Bar ------------------------------ */
+
+class _HeaderBar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      child: Row(
+        children: [
+          Builder(
+            builder: (context) => _GlassIconButton(
+              icon: Icons.menu,
+              onTap: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          const Spacer(),
+          _GlassIconButton(
+            icon: Icons.add,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddFoodScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GlassIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      radius: 28,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            )
+          ],
+        ),
+        child: Icon(icon, color: Colors.white),
+      ),
+    );
+  }
+}
+
+/* ----------------------------- Greeting Title ---------------------------- */
+
+class _GreetingTitle extends StatelessWidget {
+  const _GreetingTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 700),
+        builder: (context, t, _) {
+          return Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(0, 16 * (1 - t)),
+              child: const Text(
+                "Calories\nTracker 2.0",
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.1,
+                  shadows: [
+                    Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/* ------------------------------ Quick Actions --------------------------- */
+
+class _QuickActions extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          _QuickActionChip(
+            icon: Icons.restaurant_menu,
+            label: "Log Food",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => LogFoodPage(
+                    onCaloriesLogged: (calories) {
+                      context.read<CalorieTrackerProvider>().addCalories(calories);
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          _QuickActionChip(
+            icon: Icons.map_outlined,
+            label: "Open Map",
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+          ),
+          const SizedBox(width: 12),
+          _QuickActionChip(
+            icon: Icons.fastfood_outlined,
+            label: "Add Meal",
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddFoodScreen()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.22),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.28)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -62,352 +270,688 @@ class HomePage extends StatelessWidget {
   }
 }
 
-/* ---------------------------- UI helpers below ---------------------------- */
+/* ---------------------------- Calorie Ring Card -------------------------- */
 
-Widget _buildAppBar(BuildContext context) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Builder(
-        builder: (context) => IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white, size: 28),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
-      ),
-      Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.3)),
-        ),
-        child: IconButton(
-          icon: const Icon(Icons.add, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddFoodScreen()),
-            );
-          },
-        ),
-      ),
-    ],
-  );
-}
+class _CalorieRingCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CalorieTrackerProvider>(
+      builder: (context, provider, _) {
+        final total = provider.calories;
+        final goal = provider.calorieGoal;
+        final progress = (goal == 0) ? 0.0 : (total / goal).clamp(0.0, 1.0);
 
-Widget _buildAnimatedTitle() {
-  return TweenAnimationBuilder(
-    tween: Tween<double>(begin: 0, end: 1),
-    duration: const Duration(milliseconds: 800),
-    builder: (context, value, child) {
-      return Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: const Text(
-            "Calories\nTracker",
-            style: TextStyle(
-              fontSize: 38,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              height: 1.2,
-              shadows: [
-                Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-Widget _buildActionButtons(BuildContext context) {
-  return Row(
-    children: [
-      _buildActionButton(
-        context,
-        Icons.restaurant_menu,
-        "Log Food",
-            () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LogFoodPage(
-                onCaloriesLogged: (calories) {
-                  context.read<CalorieTrackerProvider>().addCalories(calories);
-                },
-              ),
-            ),
-          );
-        },
-      ),
-    ],
-  );
-}
-
-Widget _buildTodaysIntake(BuildContext context) {
-  return Consumer<CalorieTrackerProvider>(
-    builder: (context, provider, child) {
-      final total = provider.calories;
-      return Container(
-        padding: const EdgeInsets.all(25),
-        decoration: _whiteCardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Today's Intake",
-              style: TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 12),
-            Row(
-    //          crossAxisAlignment: TextBaseline.alphabetic,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                TweenAnimationBuilder(
-                  tween: Tween<double>(begin: 0, end: total.toDouble()),
+        return _GlassCard(
+          padding: const EdgeInsets.all(22),
+          child: Row(
+            children: [
+              // ✅ Bigger ring
+              SizedBox(
+                width: 160,
+                height: 160,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
                   duration: const Duration(milliseconds: 900),
-                  builder: (context, value, _) => Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.black87),
-                  ),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    return CustomPaint(
+                      painter: _CalorieRingPainter(value, stroke: 12),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("${(value * 100).toInt()}%",
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                )),
+                            const SizedBox(height: 4),
+                            const Text("of goal",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  "calories",
-                  style: TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Today's Intake",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                        )),
+                    const SizedBox(height: 8),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: total.toDouble()),
+                      duration: const Duration(milliseconds: 800),
+                      builder: (context, v, __) => Text(
+                        "${v.toInt()} cal",
+                        style: const TextStyle(
+                          fontSize: 36,
+                          height: 1.0,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Goal: $goal cal",
+                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        minHeight: 8,
+                        value: progress.clamp(0.0, 1.0),
+                        backgroundColor: Colors.white.withOpacity(0.18),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.tealAccent.shade200),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
-      );
-    },
-  );
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
-Widget _buildNutrientsSection(BuildContext context) {
-  return Consumer<CalorieTrackerProvider>(
-    builder: (context, provider, child) {
-      // provider.nutrients is: { 'Protein': {'value': int, 'max': int}, ... }
+class _CalorieRingPainter extends CustomPainter {
+  final double progress; // 0..1
+  final double stroke;
+  _CalorieRingPainter(this.progress, {this.stroke = 10});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = (size.shortestSide / 2) - stroke;
+
+    final bg = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+
+    final fg = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xff7DF4E5), Color(0xff6AD3FF)],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+
+    const start = -90 * 3.1415926 / 180;
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926, false, bg);
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926 * progress, false, fg);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CalorieRingPainter old) =>
+      old.progress != progress || old.stroke != stroke;
+}
+
+/* ------------------------------ Water Card ------------------------------- */
+
+class _WaterCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CalorieTrackerProvider>(
+      builder: (context, p, _) {
+        final goal = p.waterGoalMl;
+        final val = p.waterMl;
+        final ratio = (goal == 0) ? 0.0 : (val / goal).clamp(0.0, 1.0);
+
+        return _GlassCard(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              // Bottle / vertical meter
+              SizedBox(
+                width: 64,
+                height: 160,
+                child: CustomPaint(
+                  painter: _BottlePainter(ratio),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _CardTitle(text: "Water Intake"),
+                    const SizedBox(height: 6),
+                    Text("$val / $goal ml",
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        minHeight: 8,
+                        value: ratio,
+                        backgroundColor: Colors.white.withOpacity(0.18),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _waterBtn(context, "+250 ml", () => p.addWater(250)),
+                        const SizedBox(width: 8),
+                        _waterBtn(context, "+500 ml", () => p.addWater(500)),
+                        const Spacer(),
+                        _waterBtn(context, "Reset", () => p.setWater(0)),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _waterBtn(BuildContext ctx, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.14),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+}
+
+class _BottlePainter extends CustomPainter {
+  final double fill; // 0..1
+  _BottlePainter(this.fill);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(18));
+    final paintBorder = Paint()
+      ..color = Colors.white.withOpacity(0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final paintFill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [Color(0xFF4FC3F7), Color(0xFFB3E5FC)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true
+      ..color = Colors.lightBlueAccent.withOpacity(0.9);
+
+    // Fill height
+    final h = size.height * fill;
+    final fillRect = Rect.fromLTWH(0, size.height - h, size.width, h);
+    final clip = Path()..addRRect(r);
+
+    canvas.save();
+    canvas.clipPath(clip);
+    canvas.drawRect(fillRect, paintFill);
+    canvas.restore();
+
+    // Border
+    canvas.drawRRect(r, paintBorder);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BottlePainter oldDelegate) => oldDelegate.fill != fill;
+}
+
+/* ----------------------------- Nutrients Card ---------------------------- */
+
+class _NutrientsCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CalorieTrackerProvider>(builder: (context, provider, _) {
       final n = provider.nutrients;
 
-      final proteinVal = (n['Protein']?['value'] ?? 0);
-      final carbsVal   = (n['Carbs']?['value']   ?? 0);
-      final fatVal     = (n['Fats']?['value']    ?? 0);
+      int val(String k) => (n[k]?['value'] ?? 0) as int;
+      int max(String k) => (n[k]?['max'] ?? {
+            'Protein': 120,
+            'Carbs': 250,
+            'Fats': 70,
+          }[k]) as int;
 
-      final proteinMax = (n['Protein']?['max'] ?? 120);
-      final carbsMax   = (n['Carbs']?['max']   ?? 250);
-      final fatsMax    = (n['Fats']?['max']    ?? 70);
+      final items = [
+        _NutrientData("Protein", Icons.fitness_center, val("Protein"), max("Protein"), Colors.orange),
+        _NutrientData("Carbs", Icons.rice_bowl_outlined, val("Carbs"), max("Carbs"), Colors.lightBlue),
+        _NutrientData("Fats", Icons.bubble_chart_outlined, val("Fats"), max("Fats"), Colors.greenAccent.shade400),
+      ];
 
-      final normalized = <String, Map<String, int>>{
-        'Protein': {'value': proteinVal, 'max': proteinMax},
-        'Carbs'  : {'value': carbsVal,   'max': carbsMax},
-        'Fats'   : {'value': fatVal,     'max': fatsMax},
-      };
-
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: _whiteCardDecoration(),
+      return _GlassCard(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Nutrients",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87)),
-            const SizedBox(height: 20),
-            ...normalized.entries.map((e) {
-              final name = e.key;
-              final value = e.value['value']!;
-              final max = e.value['max']!;
-              final color = {
-                'Protein': Colors.orange,
-                'Carbs'  : Colors.blue,
-                'Fats'   : Colors.green,
-              }[name]!;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 15),
-                child: _buildNutrientRow(name, value, max, color),
-              );
-            }),
+            const _CardTitle(text: "Nutrients"),
+            const SizedBox(height: 10),
+            ...items.map((e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: _NutrientRow(data: e),
+                )),
           ],
         ),
       );
-    },
-  );
+    });
+  }
 }
 
+class _NutrientData {
+  final String name;
+  final IconData icon;
+  final int value;
+  final int max;
+  final Color color;
 
-Widget _buildRecommendedNearby(BuildContext context) {
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: _whiteCardDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text("Recommended Nearby", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: Colors.blue[100], borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.location_on, size: 14, color: Colors.blue[700]),
-                  const SizedBox(width: 4),
-                  Text("0.3 mi", style: TextStyle(color: Colors.blue[700], fontSize: 12, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
-          child: Container(
-            height: 160,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(
-                image: CachedNetworkImageProvider(
-                  // NOTE: don't commit real API keys to git. Replace with your own key in local dev.
-                  'https://maps.googleapis.com/maps/api/staticmap?center=Central+Park,NY&zoom=15&size=600x300&key=AIzaSyB6Ew262fBnzeasoWFrBESzq5F9A6E96MM',
-                ),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        _buildRestaurantCard(
-          "McDonald's",
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/McDonald%27s_logo.svg/1200px-McDonald%27s_logo.svg.png',
-          4.1,
-          "5 min away",
-        ),
-        const SizedBox(height: 12),
-        _buildRestaurantCard(
-          "Subway",
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Subway_2016_logo.svg/2560px-Subway_2016_logo.svg.png',
-          4.0,
-          "7 min away",
-        ),
-      ],
-    ),
-  );
+  _NutrientData(this.name, this.icon, this.value, this.max, this.color);
 }
 
-Widget _buildRestaurantCard(String name, String logoUrl, double rating, String location) {
-  return Container(
-    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
-    padding: const EdgeInsets.all(14),
-    child: Row(
+class _NutrientRow extends StatelessWidget {
+  final _NutrientData data;
+
+  const _NutrientRow({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = data.value.clamp(0, data.max);
+    return Row(
       children: [
         Container(
-          width: 54,
-          height: 54,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            image: DecorationImage(image: CachedNetworkImageProvider(logoUrl), fit: BoxFit.cover),
+            color: Colors.white.withOpacity(0.16),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withOpacity(0.25)),
           ),
+          child: Icon(data.icon, color: Colors.white, size: 20),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(data.name,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.star, color: Colors.orange[400], size: 16),
-                  const SizedBox(width: 4),
-                  Text(rating.toString(), style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  Icon(Icons.location_on, size: 16, color: Colors.blue[400]),
-                  const SizedBox(width: 4),
-                  Text(location, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                ],
+              LayoutBuilder(
+                builder: (context, c) {
+                  final w = (clamped / data.max) * c.maxWidth;
+                  return Stack(
+                    children: [
+                      Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOut,
+                        width: w,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: data.color,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
         ),
+        const SizedBox(width: 12),
+        Text(
+          "${data.value}/${data.max} g",
+          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+        ),
       ],
-    ),
-  );
+    );
+  }
 }
 
-Widget _buildActionButton(BuildContext context, IconData icon, String text, VoidCallback onTap) {
-  return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.30),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.30)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    ),
-  );
+/* --------------------------- Protein Chart Card -------------------------- */
+
+class _ProteinChartCard extends StatefulWidget {
+  @override
+  State<_ProteinChartCard> createState() => _ProteinChartCardState();
 }
 
-Widget _buildNutrientRow(String name, int value, int max, Color color) {
-  final clamped = value.clamp(0, max);
-  return Row(
-    children: [
-      Expanded(
-        child: Stack(
-          children: [
-            Container(
-              height: 8,
-              decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-            ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = (clamped / max) * constraints.maxWidth;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOut,
-                  height: 8,
-                  width: width,
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
-                );
-              },
-            ),
-          ],
-        ),
+class _ProteinChartCardState extends State<_ProteinChartCard> {
+  // simple toggle: Day (single bar) or Week (7 bars)
+  bool showWeek = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CalorieTrackerProvider>(
+      builder: (context, p, _) {
+        final week = p.proteinWeek; // 7 values, last is today
+        final today = p.nutrients['Protein']?['value'] ?? 0;
+        final data = showWeek ? week : [today];
+        final labels = showWeek ? ['M','T','W','T','F','S','Today'] : ['Today'];
+
+        return _GlassCard(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const _CardTitle(text: "Protein Intake"),
+                  const Spacer(),
+                  _segmented(
+                    left: "Day",
+                    right: "Week",
+                    valueRight: showWeek,
+                    onChanged: (v) => setState(() => showWeek = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 160,
+                child: CustomPaint(
+                  painter: _BarChartPainter(values: data.map((e)=>e.toDouble()).toList(), labels: labels),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _segmented({required String left, required String right, required bool valueRight, required ValueChanged<bool> onChanged}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
       ),
-      const SizedBox(width: 12),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text('$value/$max g', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+          _segBtn(left, !valueRight, () => onChanged(false)),
+          _segBtn(right, valueRight, () => onChanged(true)),
         ],
       ),
-    ],
-  );
+    );
+  }
+
+  Widget _segBtn(String label, bool active, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? Colors.white.withOpacity(0.30) : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
 }
 
-BoxDecoration _whiteCardDecoration() {
-  return BoxDecoration(
-    color: Colors.white.withOpacity(0.85),
-    borderRadius: BorderRadius.circular(24),
-    boxShadow: [
-      BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 10, offset: const Offset(0, 5)),
-    ],
-  );
+class _BarChartPainter extends CustomPainter {
+  final List<double> values;
+  final List<String> labels;
+
+  _BarChartPainter({required this.values, required this.labels});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    final maxVal = (values.reduce((a,b)=>a>b?a:b)).clamp(1, double.infinity);
+    final barPaint = Paint()..color = const Color(0xFFFFB74D); // orange-ish
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.12)
+      ..strokeWidth = 1;
+
+    // Grid lines (3)
+    for (int i = 1; i <= 3; i++) {
+      final y = size.height * (1 - i / 3);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final count = values.length;
+    final gap = 10.0;
+    final barWidth = (size.width - gap * (count + 1)) / count;
+
+    // Draw bars + labels
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i < count; i++) {
+      final v = values[i];
+      final h = (v / maxVal) * (size.height - 18); // leave space for labels
+      final x = gap + i * (barWidth + gap);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, size.height - h - 18, barWidth, h),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(rect, barPaint);
+
+      // label
+      textPainter.text = TextSpan(
+        text: labels[i],
+        style: const TextStyle(fontSize: 10, color: Colors.white70),
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x + (barWidth - textPainter.width) / 2, size.height - 14));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarChartPainter old) =>
+      old.values != values || old.labels != labels;
+}
+
+/* ------------------------------ Nearby Card ------------------------------ */
+
+class _NearbyCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _CardTitle(text: "Recommended Nearby"),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlueAccent.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.26)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.location_on, size: 14, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text("~0.3 mi",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.1),
+                ),
+                child: const Image(
+                  image: AssetImage('assets/map_placeholder.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _RestaurantTile(
+            name: "McDonald's",
+            logoUrl:
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/McDonald%27s_logo.svg/1200px-McDonald%27s_logo.svg.png',
+            rating: 4.1,
+            timeAway: "5 min",
+          ),
+          const SizedBox(height: 12),
+          const _RestaurantTile(
+            name: "Subway",
+            logoUrl:
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Subway_2016_logo.svg/2560px-Subway_2016_logo.svg.png',
+            rating: 4.0,
+            timeAway: "7 min",
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RestaurantTile extends StatelessWidget {
+  final String name;
+  final String logoUrl;
+  final double rating;
+  final String timeAway;
+
+  const _RestaurantTile({
+    required this.name,
+    required this.logoUrl,
+    required this.rating,
+    required this.timeAway,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 56,
+              height: 56,
+              color: Colors.white,
+              child: CachedNetworkImage(
+                imageUrl: logoUrl,
+                fit: BoxFit.contain,
+                errorWidget: (_, __, ___) => const Icon(Icons.restaurant, color: Colors.black54),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text("$rating", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    const Icon(Icons.schedule, color: Colors.white70, size: 16),
+                    const SizedBox(width: 4),
+                    Text("$timeAway away",
+                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* --------------------------------- Utils -------------------------------- */
+
+class _GlassCard extends StatelessWidget {
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+
+  const _GlassCard({required this.padding, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withOpacity(0.28)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _CardTitle extends StatelessWidget {
+  final String text;
+  const _CardTitle({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: 20,
+      ),
+    );
+  }
 }

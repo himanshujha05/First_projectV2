@@ -1,14 +1,25 @@
-﻿.idea/
-.gradle/
-build/
-app/build/
-*.iml
-local.properties
-/captures/
-/.cxx/
+# Flutter/Dart
 .dart_tool/
+.packages
 .flutter-plugins
 .flutter-plugins-dependencies
-.packages
 .melos_tool/
+.pub-cache/
 .metadata
+build/
+coverage/
+# VS Code / IntelliJ
+.vscode/
+.idea/
+# macOS/iOS
+ios/Flutter/.last_build_id
+ios/Pods/
+macos/Pods/
+# CocoaPods intermediates (keep Podfile & Podfile.lock)
+**/Pods/
+# Platform build artifacts
+**/DerivedData/
+# OS junk
+.DS_Store
+# Chrome device profile from flutter run -d chrome
+.dart_tool/chrome-device/
