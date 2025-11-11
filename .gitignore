@@ -23,3 +23,9 @@ macos/Pods/
 .DS_Store
 # Chrome device profile from flutter run -d chrome
 .dart_tool/chrome-device/
+.dart_tool/
+build/
+.vscode/
+.DS_Store
+ios/Pods/
+macos/Pods/
