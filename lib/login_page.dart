@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'home_page.dart';
 import 'auth_service.dart';
 import 'signup_page.dart';
 
@@ -39,15 +38,15 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-      }
+      // ✅ No Navigator here – main.dart's StreamBuilder will detect the
+      //    auth change and show HomePage automatically.
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = e.message;
+        _errorMessage = e.message ?? 'Sign-in failed';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Sign-in failed: $e';
       });
     } finally {
       if (mounted) {
@@ -65,13 +64,8 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final user = await AuthService().signInWithGoogle(); // ✅ fixed
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-      }
+      await AuthService().signInWithGoogle();
+      // ✅ Same here: no manual navigation needed.
     } catch (e) {
       setState(() {
         _errorMessage = 'Google Sign-In failed: $e';
@@ -211,26 +205,26 @@ class _LoginPageState extends State<LoginPage> {
                           _isLoading
                               ? const CircularProgressIndicator()
                               : ElevatedButton(
-                            onPressed: _signInWithEmail,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 16),
-                              minimumSize:
-                              const Size(double.infinity, 50),
-                            ),
-                            child: const Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                                  onPressed: _signInWithEmail,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade700,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    minimumSize:
+                                        const Size(double.infinity, 50),
+                                  ),
+                                  child: const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
 
                           const SizedBox(height: 16),
                           const Text(
@@ -243,21 +237,27 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 16),
 
                           OutlinedButton.icon(
-                            onPressed: _signInWithGoogle,
-                            icon: Image.asset('assets/google_logo.png',
-                                height: 22),
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: Image.asset(
+                              'assets/google_logo.png',
+                              height: 22,
+                            ),
                             label: const Text(
                               'Sign in with Google',
                               style: TextStyle(
-                                  color: Colors.black87, fontSize: 18),
+                                color: Colors.black87,
+                                fontSize: 18,
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding:
-                              const EdgeInsets.symmetric(vertical: 16),
-                              minimumSize: const Size(double.infinity, 50),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              minimumSize:
+                                  const Size(double.infinity, 50),
                             ),
                           ),
                         ],
@@ -270,12 +270,16 @@ class _LoginPageState extends State<LoginPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const SignUpPage()),
+                            builder: (_) => const SignUpPage(),
+                          ),
                         );
                       },
                       child: const Text(
                         'Don\'t have an account? Sign Up',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],

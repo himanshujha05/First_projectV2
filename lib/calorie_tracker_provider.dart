@@ -1,150 +1,202 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CalorieTrackerProvider extends ChangeNotifier {
   // ---- Calories ----
-  int _calories = 0;
-  int get calories => _calories;
+  int calories = 0;
+  int calorieGoal = 2200;
 
-  int _calorieGoal = 2000;
-  int get calorieGoal => _calorieGoal;
+  // ---- Water ----
+  int waterMl = 0;
+  int waterGoalMl = 2000;
 
-  // ---- Nutrients (macros) ----
-  final Map<String, Map<String, int>> _nutrients = {
+  // ---- Nutrients (g) ----
+  // value = consumed today, max = daily target
+  Map<String, Map<String, int>> nutrients = {
     'Protein': {'value': 0, 'max': 120},
-    'Carbs'  : {'value': 0, 'max': 250},
-    'Fats'   : {'value': 0, 'max': 70},
+    'Carbs': {'value': 0, 'max': 250},
+    'Fats': {'value': 0, 'max': 70},
   };
-  Map<String, Map<String, int>> get nutrients => _nutrients;
 
-  // ---- Water intake (ml) ----
-  int _waterMl = 0;
-  int _waterGoalMl = 2000;
-  int get waterMl => _waterMl;
-  int get waterGoalMl => _waterGoalMl;
+  // 7-day protein history (Mon..Today)
+  List<int> proteinWeek = List<int>.filled(7, 0);
 
-  // ---- Protein history (last 7 days, today at the end) ----
-  // Keep simple integers (grams). You can replace with real persistence later.
-  List<int> _proteinWeek = [60, 75, 50, 80, 90, 70, 0];
-  List<int> get proteinWeek => List.unmodifiable(_proteinWeek);
+  // ---------------- CONSTRUCTOR: load user targets ----------------
 
-  // ---- Calories API ----
-  void addCalories(int amount) {
-    _calories += amount;
-    notifyListeners();
+  CalorieTrackerProvider() {
+    _loadUserTargets();
   }
 
-  void setCalories(int newCalories) {
-    _calories = newCalories;
-    notifyListeners();
-  }
+  Future<void> _loadUserTargets() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-  void setCalorieGoal(int newGoal) {
-    _calorieGoal = newGoal.clamp(500, 5000);
-    notifyListeners();
-  }
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-  // ---- Nutrients API ----
-  void updateNutrient(String name, int value) {
-    if (_nutrients.containsKey(name)) {
-      _nutrients[name]!['value'] = value.clamp(0, 1000000);
-      _syncProteinToday();
-      notifyListeners();
+      final data = snap.data();
+      if (data == null) return;
+
+      int _asInt(dynamic v, int fallback) {
+        if (v == null) return fallback;
+        if (v is int) return v;
+        if (v is double) return v.round();
+        if (v is num) return v.toInt();
+        return fallback;
+      }
+
+      final calGoal = _asInt(
+        data['recommendedCalories'] ?? data['calorieGoal'],
+        calorieGoal,
+      );
+      final proteinGoal = _asInt(
+        data['recommendedProtein'],
+        nutrients['Protein']?['max'] ?? 120,
+      );
+      final carbsGoal = _asInt(
+        data['recommendedCarbs'],
+        nutrients['Carbs']?['max'] ?? 250,
+      );
+      final fatsGoal = _asInt(
+        data['recommendedFats'],
+        nutrients['Fats']?['max'] ?? 70,
+      );
+
+      // apply to provider
+      updateTargets(
+        calorieGoal: calGoal,
+        proteinGoal: proteinGoal,
+        carbsGoal: carbsGoal,
+        fatsGoal: fatsGoal,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('CalorieTrackerProvider: failed to load user targets: $e');
+      }
     }
   }
 
-  void addMacros({double protein = 0, double carbs = 0, double fats = 0}) {
-    _inc('Protein', protein);
-    _inc('Carbs',   carbs);
-    _inc('Fats',    fats);
-    _syncProteinToday();
+  // ---------------- Calories ----------------
+
+  void addCalories(int value) {
+    calories += value;
+    if (calories < 0) calories = 0;
     notifyListeners();
   }
+
+  void setCalorieGoal(int value) {
+    calorieGoal = value;
+    notifyListeners();
+  }
+
+  // 🔥 update everything from profile plan or Firestore
+  void updateTargets({
+    required int calorieGoal,
+    required int proteinGoal,
+    required int carbsGoal,
+    required int fatsGoal,
+  }) {
+    this.calorieGoal = calorieGoal;
+
+    // ensure keys exist
+    nutrients['Protein'] ??= {'value': 0, 'max': proteinGoal};
+    nutrients['Carbs'] ??= {'value': 0, 'max': carbsGoal};
+    nutrients['Fats'] ??= {'value': 0, 'max': fatsGoal};
+
+    nutrients['Protein']!['max'] = proteinGoal;
+    nutrients['Carbs']!['max'] = carbsGoal;
+    nutrients['Fats']!['max'] = fatsGoal;
+
+    notifyListeners();
+  }
+
+  // ---------------- Water ----------------
+
+  void addWater(int value) {
+    waterMl += value;
+    if (waterMl < 0) waterMl = 0;
+    notifyListeners();
+  }
+
+  void setWater(int value) {
+    waterMl = value;
+    if (waterMl < 0) waterMl = 0;
+    notifyListeners();
+  }
+
+  void setWaterGoal(int value) {
+    waterGoalMl = value;
+    notifyListeners();
+  }
+
+  // ---------------- Nutrients ----------------
+
+  void setNutrient(String name, int value, int max) {
+    nutrients[name] = {'value': value, 'max': max};
+    notifyListeners();
+  }
+
+  void addNutrient(String name, int delta) {
+    final current = nutrients[name]?['value'] ?? 0;
+    final max = nutrients[name]?['max'] ?? 0;
+    nutrients[name] = {
+      'value': (current + delta).clamp(0, 100000),
+      'max': max,
+    };
+    notifyListeners();
+  }
+
+  // optional: update today's protein in the week array
+  void setTodayProtein(int grams) {
+    if (proteinWeek.isEmpty) return;
+    proteinWeek[proteinWeek.length - 1] = grams;
+    notifyListeners();
+  }
+
+  // ---------------- RESET ALL ----------------
+
+  /// Reset whole daily log (calories, water, nutrients, chart).
+  void resetAll() {
+    calories = 0;
+    waterMl = 0;
+
+    nutrients.updateAll((key, value) => {
+          'value': 0,
+          'max': value['max'] ?? 0,
+        });
+
+    for (int i = 0; i < proteinWeek.length; i++) {
+      proteinWeek[i] = 0;
+    }
+
+    notifyListeners();
+  }
+
+  // ---------------- Meals from LogFoodPage ----------------
 
   void addMeal({
     required int caloriesPerUnit,
     required int quantity,
-    double proteinPerUnit = 0,
-    double carbsPerUnit = 0,
-    double fatsPerUnit = 0,
+    required double proteinPerUnit,
+    required double carbsPerUnit,
+    required double fatsPerUnit,
   }) {
-    final totalCals = caloriesPerUnit * quantity;
-    final totalP = proteinPerUnit * quantity;
-    final totalC = carbsPerUnit   * quantity;
-    final totalF = fatsPerUnit    * quantity;
+    final totalCalories = caloriesPerUnit * quantity;
+    final totalProtein = (proteinPerUnit * quantity).round();
+    final totalCarbs = (carbsPerUnit * quantity).round();
+    final totalFats = (fatsPerUnit * quantity).round();
 
-    _calories += totalCals;
-    _inc('Protein', totalP);
-    _inc('Carbs',   totalC);
-    _inc('Fats',    totalF);
-    _syncProteinToday();
-    notifyListeners();
-  }
+    addCalories(totalCalories);
+    addNutrient('Protein', totalProtein);
+    addNutrient('Carbs', totalCarbs);
+    addNutrient('Fats', totalFats);
 
-  /// Optionally adjust daily macro goals (grams).
-  void setGoals({int? protein, int? carbs, int? fats}) {
-    if (protein != null && _nutrients.containsKey('Protein')) {
-      _nutrients['Protein']!['max'] = protein;
-    }
-    if (carbs != null && _nutrients.containsKey('Carbs')) {
-      _nutrients['Carbs']!['max'] = carbs;
-    }
-    if (fats != null && _nutrients.containsKey('Fats')) {
-      _nutrients['Fats']!['max'] = fats;
-    }
-    notifyListeners();
-  }
-
-  // ---- Water API ----
-  void addWater(int ml) {
-    _waterMl = (_waterMl + ml).clamp(0, 20000);
-    notifyListeners();
-  }
-
-  void setWater(int ml) {
-    _waterMl = ml.clamp(0, 20000);
-    notifyListeners();
-  }
-
-  void setWaterGoal(int ml) {
-    _waterGoalMl = ml.clamp(500, 6000);
-    notifyListeners();
-  }
-
-  // ---- Reset ----
-  void resetToday() {
-    _calories = 0;
-    for (final e in _nutrients.values) {
-      e['value'] = 0;
-    }
-    _waterMl = 0;
-
-    // shift week left, clear "today"
-    _proteinWeek = [
-      _proteinWeek[1],
-      _proteinWeek[2],
-      _proteinWeek[3],
-      _proteinWeek[4],
-      _proteinWeek[5],
-      _proteinWeek[6],
-      0
-    ];
-    notifyListeners();
-  }
-
-  // ---- helpers ----
-  void _inc(String key, double by) {
-    if (!_nutrients.containsKey(key)) return;
-    final current = _nutrients[key]!['value'] ?? 0;
-    _nutrients[key]!['value'] = (current + by.round()).clamp(0, 1000000);
-  }
-
-  void _syncProteinToday() {
-    // Mirror the current protein "value" into the last slot of the week array.
-    final todayProtein = _nutrients['Protein']?['value'] ?? 0;
-    if (_proteinWeek.isEmpty) {
-      _proteinWeek = [todayProtein];
-    } else {
-      _proteinWeek[_proteinWeek.length - 1] = todayProtein;
-    }
+    // also reflect today's protein in weekly chart
+    final todayProtein = nutrients['Protein']?['value'] ?? 0;
+    setTodayProtein(todayProtein);
   }
 }

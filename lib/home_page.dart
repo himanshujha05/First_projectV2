@@ -1,15 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:first_project/calorie_tracker_provider.dart';
-import 'package:first_project/map_screen.dart';
-import 'package:first_project/app_drawer.dart';
-import 'package:first_project/add_food_screen.dart';
-import 'package:first_project/log_food_page.dart';
+import 'calorie_tracker_provider.dart';
+import 'map_screen.dart';
+import 'app_drawer.dart';
+import 'add_food_screen.dart';
+import 'log_food_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadGoalsFromFirestore();
+  }
+
+  /// Load saved goals (recommendedCalories, macros) from Firestore
+  /// and push them into CalorieTrackerProvider so HomePage uses them.
+  Future<void> _loadGoalsFromFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Get provider BEFORE any await -> no use_build_context_synchronously warning
+      final tracker =
+          Provider.of<CalorieTrackerProvider>(context, listen: false);
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!doc.exists) return;
+      final data = doc.data() ?? {};
+
+      // Keep current consumed values (don't reset user's daily progress)
+      final currentProtein = tracker.nutrients['Protein']?['value'] ?? 0;
+      final currentCarbs = tracker.nutrients['Carbs']?['value'] ?? 0;
+      final currentFats = tracker.nutrients['Fats']?['value'] ?? 0;
+
+      // Read saved targets, with fallbacks
+      final calGoalRaw =
+          data['recommendedCalories'] ?? data['calorieGoal'] ?? tracker.calorieGoal;
+      final protGoalRaw = data['recommendedProtein'] ??
+          tracker.nutrients['Protein']?['max'] ??
+          120;
+      final carbGoalRaw =
+          data['recommendedCarbs'] ?? tracker.nutrients['Carbs']?['max'] ?? 250;
+      final fatGoalRaw =
+          data['recommendedFats'] ?? tracker.nutrients['Fats']?['max'] ?? 70;
+
+      int _toInt(dynamic v, int fallback) {
+        if (v is int) return v;
+        if (v is double) return v.round();
+        return int.tryParse(v.toString()) ?? fallback;
+      }
+
+      final calGoal = _toInt(calGoalRaw, tracker.calorieGoal);
+      final protGoal =
+          _toInt(protGoalRaw, tracker.nutrients['Protein']?['max'] ?? 120);
+      final carbGoal =
+          _toInt(carbGoalRaw, tracker.nutrients['Carbs']?['max'] ?? 250);
+      final fatGoal =
+          _toInt(fatGoalRaw, tracker.nutrients['Fats']?['max'] ?? 70);
+
+      tracker.setCalorieGoal(calGoal);
+      tracker.setNutrient('Protein', currentProtein, protGoal);
+      tracker.setNutrient('Carbs', currentCarbs, carbGoal);
+      tracker.setNutrient('Fats', currentFats, fatGoal);
+    } catch (e) {
+      debugPrint('Failed to sync profile goals to HomePage: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +89,7 @@ class HomePage extends StatelessWidget {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Background
+          // Background image
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -27,6 +98,7 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
+          // Dark gradient overlay
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -51,11 +123,11 @@ class HomePage extends StatelessWidget {
                 SliverToBoxAdapter(child: _QuickActions()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
-                // Bigger ring card
+                // Big ring card
                 SliverToBoxAdapter(child: _CalorieRingCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
-                // NEW: Water meter
+                // Water meter
                 SliverToBoxAdapter(child: _WaterCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
@@ -63,7 +135,7 @@ class HomePage extends StatelessWidget {
                 SliverToBoxAdapter(child: _NutrientsCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
-                // NEW: Protein chart
+                // Protein chart
                 SliverToBoxAdapter(child: _ProteinChartCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
@@ -95,12 +167,11 @@ class _HeaderBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          _GlassIconButton(
-            icon: Icons.add,
+          _GlassResetButton(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AddFoodScreen()),
+              context.read<CalorieTrackerProvider>().resetAll();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Daily log has been reset")),
               );
             },
           ),
@@ -141,6 +212,43 @@ class _GlassIconButton extends StatelessWidget {
   }
 }
 
+class _GlassResetButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _GlassResetButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.28),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withOpacity(0.7)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Text(
+          "RESET",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /* ----------------------------- Greeting Title ---------------------------- */
 
 class _GreetingTitle extends StatelessWidget {
@@ -166,7 +274,11 @@ class _GreetingTitle extends StatelessWidget {
                   color: Colors.white,
                   height: 1.1,
                   shadows: [
-                    Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black26,
+                    ),
                   ],
                 ),
               ),
@@ -196,7 +308,9 @@ class _QuickActions extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => LogFoodPage(
                     onCaloriesLogged: (calories) {
-                      context.read<CalorieTrackerProvider>().addCalories(calories);
+                      context
+                          .read<CalorieTrackerProvider>()
+                          .addCalories(calories);
                     },
                   ),
                 ),
@@ -207,14 +321,20 @@ class _QuickActions extends StatelessWidget {
           _QuickActionChip(
             icon: Icons.map_outlined,
             label: "Open Map",
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MapScreen()),
+            ),
           ),
           const SizedBox(width: 12),
           _QuickActionChip(
             icon: Icons.fastfood_outlined,
             label: "Add Meal",
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddFoodScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddFoodScreen()),
+              );
             },
           ),
         ],
@@ -279,40 +399,53 @@ class _CalorieRingCard extends StatelessWidget {
       builder: (context, provider, _) {
         final total = provider.calories;
         final goal = provider.calorieGoal;
-        final progress = (goal == 0) ? 0.0 : (total / goal).clamp(0.0, 1.0);
+
+        final rawProgress = goal == 0 ? 0.0 : total / goal;
+        final progress = rawProgress.clamp(0.0, 1.0);
+        final bool overGoal = goal > 0 && total > goal;
+        final int diff =
+            (overGoal ? total - goal : goal - total).clamp(0, 100000);
 
         return _GlassCard(
           padding: const EdgeInsets.all(22),
           child: Row(
             children: [
-              // ✅ Bigger ring
+              // Bigger ring
               SizedBox(
-                width: 160,
-                height: 160,
+                width: 170,
+                height: 170,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: progress),
                   duration: const Duration(milliseconds: 900),
                   curve: Curves.easeOutCubic,
                   builder: (context, value, _) {
                     return CustomPaint(
-                      painter: _CalorieRingPainter(value, stroke: 12),
+                      painter: _CalorieRingPainter(
+                        value,
+                        stroke: 16,
+                        overGoal: overGoal,
+                      ),
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("${(value * 100).toInt()}%",
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                )),
+                            Text(
+                              "${(rawProgress * 100).clamp(0, 999).toInt()}%",
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            const Text("of goal",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                )),
+                            const Text(
+                              "of goal",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -325,11 +458,13 @@ class _CalorieRingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Today's Intake",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                        )),
+                    const Text(
+                      "Today's Intake",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: total.toDouble()),
@@ -345,18 +480,77 @@ class _CalorieRingCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      "Goal: $goal cal",
-                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+
+                    // Goal row + edit button
+                    Row(
+                      children: [
+                        Text(
+                          "Goal: $goal cal",
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        InkWell(
+                          onTap: () =>
+                              _showEditCalorieGoalDialog(context, goal),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.25),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit, size: 14, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Edit goal",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
-                        minHeight: 8,
+                        minHeight: 10,
                         value: progress.clamp(0.0, 1.0),
                         backgroundColor: Colors.white.withOpacity(0.18),
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.tealAccent.shade200),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          overGoal ? Colors.redAccent : Colors.tealAccent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      overGoal
+                          ? "Over goal by $diff cal"
+                          : "Remaining $diff cal",
+                      style: TextStyle(
+                        color: overGoal
+                            ? Colors.redAccent.shade100
+                            : Colors.lightGreenAccent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -371,9 +565,12 @@ class _CalorieRingCard extends StatelessWidget {
 }
 
 class _CalorieRingPainter extends CustomPainter {
-  final double progress; // 0..1
+  final double progress; // 0..1 for ring visualization
   final double stroke;
-  _CalorieRingPainter(this.progress, {this.stroke = 10});
+  final bool overGoal;
+
+  _CalorieRingPainter(this.progress,
+      {this.stroke = 10, this.overGoal = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -387,21 +584,37 @@ class _CalorieRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final fg = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xff7DF4E5), Color(0xff6AD3FF)],
+      ..shader = LinearGradient(
+        colors: overGoal
+            ? const [Color(0xffFF6A6A), Color(0xffFF8A80)]
+            : const [Color(0xff7DF4E5), Color(0xff6AD3FF)],
       ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
 
     const start = -90 * 3.1415926 / 180;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926, false, bg);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926 * progress, false, fg);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      2 * 3.1415926,
+      false,
+      bg,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      2 * 3.1415926 * progress,
+      false,
+      fg,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _CalorieRingPainter old) =>
-      old.progress != progress || old.stroke != stroke;
+      old.progress != progress ||
+      old.stroke != stroke ||
+      old.overGoal != overGoal;
 }
 
 /* ------------------------------ Water Card ------------------------------- */
@@ -434,8 +647,13 @@ class _WaterCard extends StatelessWidget {
                   children: [
                     const _CardTitle(text: "Water Intake"),
                     const SizedBox(height: 6),
-                    Text("$val / $goal ml",
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      "$val / $goal ml",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -443,7 +661,9 @@ class _WaterCard extends StatelessWidget {
                         minHeight: 8,
                         value: ratio,
                         backgroundColor: Colors.white.withOpacity(0.18),
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.lightBlueAccent,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -477,7 +697,13 @@ class _WaterCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white.withOpacity(0.25)),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -489,7 +715,10 @@ class _BottlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(18));
+    final r = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(18),
+    );
     final paintBorder = Paint()
       ..color = Colors.white.withOpacity(0.7)
       ..style = PaintingStyle.stroke
@@ -520,7 +749,8 @@ class _BottlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BottlePainter oldDelegate) => oldDelegate.fill != fill;
+  bool shouldRepaint(covariant _BottlePainter oldDelegate) =>
+      oldDelegate.fill != fill;
 }
 
 /* ----------------------------- Nutrients Card ---------------------------- */
@@ -528,37 +758,60 @@ class _BottlePainter extends CustomPainter {
 class _NutrientsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<CalorieTrackerProvider>(builder: (context, provider, _) {
-      final n = provider.nutrients;
+    return Consumer<CalorieTrackerProvider>(
+      builder: (context, provider, _) {
+        final n = provider.nutrients;
 
-      int val(String k) => (n[k]?['value'] ?? 0) as int;
-      int max(String k) => (n[k]?['max'] ?? {
-            'Protein': 120,
-            'Carbs': 250,
-            'Fats': 70,
-          }[k]) as int;
+        int val(String k) => (n[k]?['value'] ?? 0) as int;
+        int max(String k) => (n[k]?['max'] ??
+                {
+                  'Protein': 120,
+                  'Carbs': 250,
+                  'Fats': 70,
+                }[k]) as int;
 
-      final items = [
-        _NutrientData("Protein", Icons.fitness_center, val("Protein"), max("Protein"), Colors.orange),
-        _NutrientData("Carbs", Icons.rice_bowl_outlined, val("Carbs"), max("Carbs"), Colors.lightBlue),
-        _NutrientData("Fats", Icons.bubble_chart_outlined, val("Fats"), max("Fats"), Colors.greenAccent.shade400),
-      ];
+        final items = [
+          _NutrientData(
+            "Protein",
+            Icons.fitness_center,
+            val("Protein"),
+            max("Protein"),
+            Colors.orange,
+          ),
+          _NutrientData(
+            "Carbs",
+            Icons.rice_bowl_outlined,
+            val("Carbs"),
+            max("Carbs"),
+            Colors.lightBlue,
+          ),
+          _NutrientData(
+            "Fats",
+            Icons.bubble_chart_outlined,
+            val("Fats"),
+            max("Fats"),
+            Colors.greenAccent.shade400,
+          ),
+        ];
 
-      return _GlassCard(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _CardTitle(text: "Nutrients"),
-            const SizedBox(height: 10),
-            ...items.map((e) => Padding(
+        return _GlassCard(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CardTitle(text: "Nutrients"),
+              const SizedBox(height: 10),
+              ...items.map(
+                (e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: _NutrientRow(data: e),
-                )),
-          ],
-        ),
-      );
-    });
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -580,6 +833,8 @@ class _NutrientRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = data.value.clamp(0, data.max);
+    final percent = data.max == 0 ? 0 : (clamped / data.max * 100).round();
+
     return Row(
       children: [
         Container(
@@ -590,15 +845,24 @@ class _NutrientRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white.withOpacity(0.25)),
           ),
-          child: Icon(data.icon, color: Colors.white, size: 20),
+          child: Icon(
+            data.icon,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(data.name,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              Text(
+                data.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 6),
               LayoutBuilder(
                 builder: (context, c) {
@@ -630,9 +894,25 @@ class _NutrientRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          "${data.value}/${data.max} g",
-          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              "${data.value}/${data.max} g",
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              "$percent%",
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -657,7 +937,8 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
         final week = p.proteinWeek; // 7 values, last is today
         final today = p.nutrients['Protein']?['value'] ?? 0;
         final data = showWeek ? week : [today];
-        final labels = showWeek ? ['M','T','W','T','F','S','Today'] : ['Today'];
+        final labels =
+            showWeek ? ['M', 'T', 'W', 'T', 'F', 'S', 'Today'] : ['Today'];
 
         return _GlassCard(
           padding: const EdgeInsets.all(18),
@@ -678,9 +959,12 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
               ),
               const SizedBox(height: 14),
               SizedBox(
-                height: 160,
+                height: 190,
                 child: CustomPaint(
-                  painter: _BarChartPainter(values: data.map((e)=>e.toDouble()).toList(), labels: labels),
+                  painter: _BarChartPainter(
+                    values: data.map((e) => e.toDouble()).toList(),
+                    labels: labels,
+                  ),
                 ),
               ),
             ],
@@ -690,7 +974,12 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
     );
   }
 
-  Widget _segmented({required String left, required String right, required bool valueRight, required ValueChanged<bool> onChanged}) {
+  Widget _segmented({
+    required String left,
+    required String right,
+    required bool valueRight,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.14),
@@ -716,7 +1005,13 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
           color: active ? Colors.white.withOpacity(0.30) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -732,15 +1027,15 @@ class _BarChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final maxVal = (values.reduce((a,b)=>a>b?a:b)).clamp(1, double.infinity);
-    final barPaint = Paint()..color = const Color(0xFFFFB74D); // orange-ish
+    final maxVal =
+        (values.reduce((a, b) => a > b ? a : b)).clamp(1, double.infinity);
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
+      ..color = Colors.white.withOpacity(0.18)
       ..strokeWidth = 1;
 
-    // Grid lines (3)
-    for (int i = 1; i <= 3; i++) {
-      final y = size.height * (1 - i / 3);
+    // Grid lines (4)
+    for (int i = 1; i <= 4; i++) {
+      final y = size.height * (1 - i / 4);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
@@ -748,25 +1043,67 @@ class _BarChartPainter extends CustomPainter {
     final gap = 10.0;
     final barWidth = (size.width - gap * (count + 1)) / count;
 
-    // Draw bars + labels
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final labelPainter = TextPainter(textDirection: TextDirection.ltr);
+    final valuePainter = TextPainter(textDirection: TextDirection.ltr);
+
     for (int i = 0; i < count; i++) {
       final v = values[i];
-      final h = (v / maxVal) * (size.height - 18); // leave space for labels
+      final h = (v / maxVal) * (size.height - 32); // leave space for labels
       final x = gap + i * (barWidth + gap);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, size.height - h - 18, barWidth, h),
-        const Radius.circular(6),
-      );
-      canvas.drawRRect(rect, barPaint);
 
-      // label
-      textPainter.text = TextSpan(
-        text: labels[i],
-        style: const TextStyle(fontSize: 10, color: Colors.white70),
+      final barRect = Rect.fromLTWH(
+        x,
+        size.height - h - 22,
+        barWidth,
+        h,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x + (barWidth - textPainter.width) / 2, size.height - 14));
+
+      final barPaint = Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xFFFFB74D), Color(0xFFFFE082)],
+        ).createShader(barRect);
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(barRect, const Radius.circular(8)),
+        barPaint,
+      );
+
+      // value label (grams)
+      valuePainter.text = TextSpan(
+        text: v.toInt().toString(),
+        style: const TextStyle(
+          fontSize: 10,
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+      valuePainter.layout();
+      valuePainter.paint(
+        canvas,
+        Offset(
+          x + (barWidth - valuePainter.width) / 2,
+          size.height - h - 34,
+        ),
+      );
+
+      // day label
+      labelPainter.text = TextSpan(
+        text: labels[i],
+        style: const TextStyle(
+          fontSize: 10,
+          color: Colors.white70,
+        ),
+      );
+      labelPainter.layout();
+      labelPainter.paint(
+        canvas,
+        Offset(
+          x + (barWidth - labelPainter.width) / 2,
+          size.height - 16,
+        ),
+      );
     }
   }
 
@@ -790,7 +1127,8 @@ class _NearbyCard extends StatelessWidget {
               const _CardTitle(text: "Recommended Nearby"),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.lightBlueAccent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -800,8 +1138,14 @@ class _NearbyCard extends StatelessWidget {
                   children: const [
                     Icon(Icons.location_on, size: 14, color: Colors.white),
                     SizedBox(width: 4),
-                    Text("~0.3 mi",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                    Text(
+                      "~0.3 mi",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -809,7 +1153,10 @@ class _NearbyCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MapScreen()),
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Container(
@@ -879,7 +1226,8 @@ class _RestaurantTile extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: logoUrl,
                 fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const Icon(Icons.restaurant, color: Colors.black54),
+                errorWidget: (_, __, ___) =>
+                    const Icon(Icons.restaurant, color: Colors.black54),
               ),
             ),
           ),
@@ -888,19 +1236,37 @@ class _RestaurantTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     const Icon(Icons.star, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
-                    Text("$rating", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      "$rating",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const Spacer(),
-                    const Icon(Icons.schedule, color: Colors.white70, size: 16),
+                    const Icon(Icons.schedule,
+                        color: Colors.white70, size: 16),
                     const SizedBox(width: 4),
-                    Text("$timeAway away",
-                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                    Text(
+                      "$timeAway away",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -931,7 +1297,11 @@ class _GlassCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white.withOpacity(0.28)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: child,
@@ -954,4 +1324,92 @@ class _CardTitle extends StatelessWidget {
       ),
     );
   }
+}
+
+/* ------------------------- Helpers: Edit Goal Dialog --------------------- */
+
+Future<void> _showEditCalorieGoalDialog(
+    BuildContext context, int currentGoal) async {
+  final controller = TextEditingController(text: currentGoal.toString());
+  final formKey = GlobalKey<FormState>();
+
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Colors.grey.shade900,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: const Text(
+        "Set Calorie Goal",
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(
+            signed: false,
+            decimal: false,
+          ),
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: "e.g. 2200",
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.tealAccent),
+            ),
+          ),
+          validator: (text) {
+            final n = int.tryParse(text ?? "");
+            if (n == null) return "Enter a valid number";
+            if (n < 500 || n > 5000) {
+              return "Goal must be 500–5000";
+            }
+            return null;
+          },
+          onFieldSubmitted: (_) {
+            if (formKey.currentState!.validate()) {
+              final n = int.parse(controller.text);
+              context.read<CalorieTrackerProvider>().setCalorieGoal(n);
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Calorie goal updated to $n"),
+                ),
+              );
+            }
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (formKey.currentState!.validate()) {
+              final n = int.parse(controller.text);
+              context.read<CalorieTrackerProvider>().setCalorieGoal(n);
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Calorie goal updated to $n"),
+                ),
+              );
+            }
+          },
+          child: const Text("Save"),
+        ),
+      ],
+    ),
+  );
 }

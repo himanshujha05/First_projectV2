@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import 'calorie_tracker_provider.dart';
 
 class FoodItem {
@@ -104,6 +105,7 @@ class _LogFoodPageState extends State<LogFoodPage> {
     context.read<CalorieTrackerProvider>().addMeal(
       caloriesPerUnit: item.caloriesPerUnit,
       quantity: qty,
+      // round macro grams to int for the provider
       proteinPerUnit: item.proteinG,
       carbsPerUnit: item.carbsG,
       fatsPerUnit: item.fatsG,
@@ -119,7 +121,12 @@ class _LogFoodPageState extends State<LogFoodPage> {
     final totalK = item.caloriesPerUnit * qty;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logged $qty × ${item.name} • $totalK kcal • P $totalP / C $totalC / F $totalF g')),
+      SnackBar(
+        content: Text(
+          'Logged $qty × ${item.name} • $totalK kcal • '
+          'P $totalP / C $totalC / F $totalF g',
+        ),
+      ),
     );
 
     quantityControllers[item]?.clear();
@@ -140,19 +147,25 @@ class _LogFoodPageState extends State<LogFoodPage> {
                 borderRadius: BorderRadius.circular(8),
                 child: Image.asset(
                   item.assetPath,
-                  width: 50, height: 50, fit: BoxFit.cover,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const SizedBox(
-                    width: 50, height: 50,
-                    child: ColoredBox(color: Color(0x11000000), child: Icon(Icons.broken_image)),
+                    width: 50,
+                    height: 50,
+                    child: ColoredBox(
+                      color: Color(0x11000000),
+                      child: Icon(Icons.broken_image),
+                    ),
                   ),
                 ),
               ),
               title: Text(item.name),
               subtitle: Text(
                 '${item.caloriesPerUnit} kcal • '
-                    'P ${item.proteinG.toStringAsFixed(1)}g  '
-                    'C ${item.carbsG.toStringAsFixed(1)}g  '
-                    'F ${item.fatsG.toStringAsFixed(1)}g  per unit',
+                'P ${item.proteinG.toStringAsFixed(1)}g  '
+                'C ${item.carbsG.toStringAsFixed(1)}g  '
+                'F ${item.fatsG.toStringAsFixed(1)}g  per unit',
               ),
               trailing: SizedBox(
                 width: 140,
@@ -162,9 +175,13 @@ class _LogFoodPageState extends State<LogFoodPage> {
                       child: TextField(
                         controller: quantityControllers[item],
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         decoration: const InputDecoration(
-                          hintText: 'Qty', isDense: true, contentPadding: EdgeInsets.all(8),
+                          hintText: 'Qty',
+                          isDense: true,
+                          contentPadding: EdgeInsets.all(8),
                         ),
                       ),
                     ),
