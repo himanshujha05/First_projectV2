@@ -1,1 +1,16 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"peak-sunset-461808-n2","configurations":{"macos":"1:102032978405:ios:be936e2b6fcefc53bf7f0c"}}},"macos":{"default":{"projectId":"peak-sunset-461808-n2","appId":"1:102032978405:ios:be936e2b6fcefc53bf7f0c","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

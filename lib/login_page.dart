@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final user = await AuthService().signInWithGoogle(); // ✅ fixed
+      await AuthService().signInWithGoogle();
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -75,6 +75,33 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       setState(() {
         _errorMessage = 'Google Sign-In failed: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await AuthService().signInWithApple();
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Apple Sign-In failed: $e';
       });
     } finally {
       if (mounted) {
@@ -248,6 +275,26 @@ class _LoginPageState extends State<LoginPage> {
                                 height: 22),
                             label: const Text(
                               'Sign in with Google',
+                              style: TextStyle(
+                                  color: Colors.black87, fontSize: 18),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding:
+                              const EdgeInsets.symmetric(vertical: 16),
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          OutlinedButton.icon(
+                            onPressed: _signInWithApple,
+                            icon: const Icon(Icons.apple, size: 22),
+                            label: const Text(
+                              'Sign in with Apple',
                               style: TextStyle(
                                   color: Colors.black87, fontSize: 18),
                             ),

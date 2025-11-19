@@ -1,15 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:first_project/calorie_tracker_provider.dart';
 import 'package:first_project/map_screen.dart';
 import 'package:first_project/app_drawer.dart';
 import 'package:first_project/add_food_screen.dart';
 import 'package:first_project/log_food_page.dart';
+import 'package:first_project/calendar_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadUserGoal();
+  }
+
+  Future<void> _loadUserGoal() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists && mounted) {
+        final dailyCalories = doc.data()?['dailyCalories'] as int?;
+        if (dailyCalories != null && dailyCalories > 0) {
+          context.read<CalorieTrackerProvider>().setCalorieGoal(dailyCalories);
+        }
+      }
+    } catch (e) {
+      print('Error loading goal: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +201,11 @@ class _GreetingTitle extends StatelessWidget {
                   color: Colors.white,
                   height: 1.1,
                   shadows: [
-                    Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black26,
+                    ),
                   ],
                 ),
               ),
@@ -207,14 +246,31 @@ class _QuickActions extends StatelessWidget {
           _QuickActionChip(
             icon: Icons.map_outlined,
             label: "Open Map",
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MapScreen()),
+            ),
           ),
           const SizedBox(width: 12),
           _QuickActionChip(
             icon: Icons.fastfood_outlined,
             label: "Add Meal",
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddFoodScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddFoodScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          _QuickActionChip(
+            icon: Icons.calendar_month,
+            label: "Calendar",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CalendarPage()),
+              );
             },
           ),
         ],
@@ -270,6 +326,7 @@ class _QuickActionChip extends StatelessWidget {
   }
 }
 
+
 /* ---------------------------- Calorie Ring Card -------------------------- */
 
 class _CalorieRingCard extends StatelessWidget {
@@ -300,19 +357,23 @@ class _CalorieRingCard extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("${(value * 100).toInt()}%",
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                )),
+                            Text(
+                              "${(value * 100).toInt()}%",
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            const Text("of goal",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                )),
+                            const Text(
+                              "of goal",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -325,11 +386,13 @@ class _CalorieRingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Today's Intake",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                        )),
+                    const Text(
+                      "Today's Intake",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: total.toDouble()),
@@ -347,7 +410,10 @@ class _CalorieRingCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       "Goal: $goal cal",
-                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     ClipRRect(
@@ -356,7 +422,9 @@ class _CalorieRingCard extends StatelessWidget {
                         minHeight: 8,
                         value: progress.clamp(0.0, 1.0),
                         backgroundColor: Colors.white.withOpacity(0.18),
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.tealAccent.shade200),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.tealAccent.shade200,
+                        ),
                       ),
                     ),
                   ],
@@ -395,8 +463,20 @@ class _CalorieRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     const start = -90 * 3.1415926 / 180;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926, false, bg);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, 2 * 3.1415926 * progress, false, fg);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      2 * 3.1415926,
+      false,
+      bg,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      2 * 3.1415926 * progress,
+      false,
+      fg,
+    );
   }
 
   @override
@@ -434,8 +514,13 @@ class _WaterCard extends StatelessWidget {
                   children: [
                     const _CardTitle(text: "Water Intake"),
                     const SizedBox(height: 6),
-                    Text("$val / $goal ml",
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      "$val / $goal ml",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -443,7 +528,9 @@ class _WaterCard extends StatelessWidget {
                         minHeight: 8,
                         value: ratio,
                         backgroundColor: Colors.white.withOpacity(0.18),
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.lightBlueAccent,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -468,7 +555,30 @@ class _WaterCard extends StatelessWidget {
 
   Widget _waterBtn(BuildContext ctx, String label, VoidCallback onTap) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        onTap();
+
+        // Show feedback for water intake
+        if (label == "Reset") {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            SnackBar(
+              content: const Text('✓ Water intake reset'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.blue.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            SnackBar(
+              content: Text('✓ Added: $label'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.blue.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -477,7 +587,13 @@ class _WaterCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white.withOpacity(0.25)),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -489,7 +605,10 @@ class _BottlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(18));
+    final r = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(18),
+    );
     final paintBorder = Paint()
       ..color = Colors.white.withOpacity(0.7)
       ..style = PaintingStyle.stroke
@@ -520,7 +639,8 @@ class _BottlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BottlePainter oldDelegate) => oldDelegate.fill != fill;
+  bool shouldRepaint(covariant _BottlePainter oldDelegate) =>
+      oldDelegate.fill != fill;
 }
 
 /* ----------------------------- Nutrients Card ---------------------------- */
@@ -528,37 +648,63 @@ class _BottlePainter extends CustomPainter {
 class _NutrientsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<CalorieTrackerProvider>(builder: (context, provider, _) {
-      final n = provider.nutrients;
+    return Consumer<CalorieTrackerProvider>(
+      builder: (context, provider, _) {
+        final n = provider.nutrients;
 
-      int val(String k) => (n[k]?['value'] ?? 0) as int;
-      int max(String k) => (n[k]?['max'] ?? {
-            'Protein': 120,
-            'Carbs': 250,
-            'Fats': 70,
-          }[k]) as int;
+        int val(String k) {
+          final v = n[k]?['value'];
+          return v is int ? v : 0;
+        }
 
-      final items = [
-        _NutrientData("Protein", Icons.fitness_center, val("Protein"), max("Protein"), Colors.orange),
-        _NutrientData("Carbs", Icons.rice_bowl_outlined, val("Carbs"), max("Carbs"), Colors.lightBlue),
-        _NutrientData("Fats", Icons.bubble_chart_outlined, val("Fats"), max("Fats"), Colors.greenAccent.shade400),
-      ];
+        int max(String k) {
+          var m = n[k]?['max'];
+          if (m != null) return m;
+          return {'Protein': 120, 'Carbs': 250, 'Fats': 70}[k] ?? 0;
+        }
 
-      return _GlassCard(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _CardTitle(text: "Nutrients"),
-            const SizedBox(height: 10),
-            ...items.map((e) => Padding(
+        final items = [
+          _NutrientData(
+            "Protein",
+            Icons.fitness_center,
+            val("Protein"),
+            max("Protein"),
+            Colors.orange,
+          ),
+          _NutrientData(
+            "Carbs",
+            Icons.rice_bowl_outlined,
+            val("Carbs"),
+            max("Carbs"),
+            Colors.lightBlue,
+          ),
+          _NutrientData(
+            "Fats",
+            Icons.bubble_chart_outlined,
+            val("Fats"),
+            max("Fats"),
+            Colors.greenAccent.shade400,
+          ),
+        ];
+
+        return _GlassCard(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CardTitle(text: "Nutrients"),
+              const SizedBox(height: 10),
+              ...items.map(
+                (e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: _NutrientRow(data: e),
-                )),
-          ],
-        ),
-      );
-    });
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -590,15 +736,24 @@ class _NutrientRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white.withOpacity(0.25)),
           ),
-          child: Icon(data.icon, color: Colors.white, size: 20),
+          child: Icon(
+            data.icon,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(data.name,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              Text(
+                data.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 6),
               LayoutBuilder(
                 builder: (context, c) {
@@ -632,7 +787,10 @@ class _NutrientRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           "${data.value}/${data.max} g",
-          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: Colors.white70,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -657,7 +815,7 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
         final week = p.proteinWeek; // 7 values, last is today
         final today = p.nutrients['Protein']?['value'] ?? 0;
         final data = showWeek ? week : [today];
-        final labels = showWeek ? ['M','T','W','T','F','S','Today'] : ['Today'];
+        final labels = showWeek ? ['M', 'T', 'W', 'T', 'F', 'S', 'Today'] : ['Today'];
 
         return _GlassCard(
           padding: const EdgeInsets.all(18),
@@ -680,7 +838,10 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
               SizedBox(
                 height: 160,
                 child: CustomPaint(
-                  painter: _BarChartPainter(values: data.map((e)=>e.toDouble()).toList(), labels: labels),
+                  painter: _BarChartPainter(
+                    values: data.map((e) => e.toDouble()).toList(),
+                    labels: labels,
+                  ),
                 ),
               ),
             ],
@@ -690,7 +851,12 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
     );
   }
 
-  Widget _segmented({required String left, required String right, required bool valueRight, required ValueChanged<bool> onChanged}) {
+  Widget _segmented({
+    required String left,
+    required String right,
+    required bool valueRight,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.14),
@@ -716,7 +882,13 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
           color: active ? Colors.white.withOpacity(0.30) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -732,7 +904,7 @@ class _BarChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final maxVal = (values.reduce((a,b)=>a>b?a:b)).clamp(1, double.infinity);
+    final maxVal = (values.reduce((a, b) => a > b ? a : b)).clamp(1, double.infinity);
     final barPaint = Paint()..color = const Color(0xFFFFB74D); // orange-ish
     final gridPaint = Paint()
       ..color = Colors.white.withOpacity(0.12)
@@ -745,7 +917,7 @@ class _BarChartPainter extends CustomPainter {
     }
 
     final count = values.length;
-    final gap = 10.0;
+    const gap = 10.0;
     final barWidth = (size.width - gap * (count + 1)) / count;
 
     // Draw bars + labels
@@ -766,7 +938,10 @@ class _BarChartPainter extends CustomPainter {
         style: const TextStyle(fontSize: 10, color: Colors.white70),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(x + (barWidth - textPainter.width) / 2, size.height - 14));
+      textPainter.paint(
+        canvas,
+        Offset(x + (barWidth - textPainter.width) / 2, size.height - 14),
+      );
     }
   }
 
@@ -774,6 +949,8 @@ class _BarChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _BarChartPainter old) =>
       old.values != values || old.labels != labels;
 }
+
+/* ------------------------------ Nearby Card ------------------------------ */
 
 /* ------------------------------ Nearby Card ------------------------------ */
 
@@ -785,6 +962,7 @@ class _NearbyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header row (same as before)
           Row(
             children: [
               const _CardTitle(text: "Recommended Nearby"),
@@ -796,35 +974,111 @@ class _NearbyCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white.withOpacity(0.26)),
                 ),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Icon(Icons.location_on, size: 14, color: Colors.white),
                     SizedBox(width: 4),
-                    Text("~0.3 mi",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                    Text(
+                      "~0.3 mi",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 14),
+
+          // Map preview card with full image visible
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MapScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MapScreen()),
+            ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
-                ),
-                child: const Image(
-                  image: AssetImage('assets/map_placeholder.png'),
-                  fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                height: 180,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Full image
+                    Image.asset(
+                      'assets/map_bg.jpg',   // your image
+                      fit: BoxFit.cover,
+                    ),
+
+                    // Gradient only at the bottom so text is readable
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        height: 80,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.65),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Centered icon + nicer text
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.location_on,
+                              color: Colors.blueAccent,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Map View',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Tap to see healthy places nearby',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+
           const SizedBox(height: 16),
+
+          // Existing restaurant tiles (unchanged)
           const _RestaurantTile(
             name: "McDonald's",
             logoUrl:
@@ -879,7 +1133,10 @@ class _RestaurantTile extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: logoUrl,
                 fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const Icon(Icons.restaurant, color: Colors.black54),
+                errorWidget: (_, __, ___) => const Icon(
+                  Icons.restaurant,
+                  color: Colors.black54,
+                ),
               ),
             ),
           ),
@@ -888,19 +1145,36 @@ class _RestaurantTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     const Icon(Icons.star, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
-                    Text("$rating", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(
+                      "$rating",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const Spacer(),
                     const Icon(Icons.schedule, color: Colors.white70, size: 16),
                     const SizedBox(width: 4),
-                    Text("$timeAway away",
-                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                    Text(
+                      "$timeAway away",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -931,7 +1205,11 @@ class _GlassCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white.withOpacity(0.28)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: child,

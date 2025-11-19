@@ -31,6 +31,7 @@ class LogFoodPage extends StatefulWidget {
 
 class _LogFoodPageState extends State<LogFoodPage> {
   final Map<FoodItem, TextEditingController> quantityControllers = {};
+  final Set<FoodItem> _loadingItems = {};
 
   // ⚠️ Make sure these filenames exist in assets/images and match case exactly.
   final List<FoodItem> foodItems = const [
@@ -91,14 +92,26 @@ class _LogFoodPageState extends State<LogFoodPage> {
   }
 
   void _logFood(FoodItem item) {
+    // Prevent multiple rapid taps
+    if (_loadingItems.contains(item)) {
+      return;
+    }
+
     final qtyText = quantityControllers[item]?.text.trim();
     final qty = int.tryParse(qtyText ?? '') ?? 0;
     if (qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a quantity greater than 0')),
+        const SnackBar(
+          content: Text('⚠️ Enter a quantity greater than 0'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
+
+    // Mark as loading
+    setState(() => _loadingItems.add(item));
 
     // Update Provider: calories + macros
     context.read<CalorieTrackerProvider>().addMeal(
@@ -112,17 +125,29 @@ class _LogFoodPageState extends State<LogFoodPage> {
     // Notify parent (if needed for any local UI)
     widget.onCaloriesLogged(item.caloriesPerUnit * qty);
 
-    // Feedback
+    // Enhanced feedback with checkmark and colors
     final totalP = (item.proteinG * qty).toStringAsFixed(1);
     final totalC = (item.carbsG   * qty).toStringAsFixed(1);
     final totalF = (item.fatsG    * qty).toStringAsFixed(1);
     final totalK = item.caloriesPerUnit * qty;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logged $qty × ${item.name} • $totalK kcal • P $totalP / C $totalC / F $totalF g')),
+      SnackBar(
+        content: Text('✓ Logged: $qty × ${item.name}\n$totalK kcal | P: $totalP | C: $totalC | F: $totalF g'),
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
 
     quantityControllers[item]?.clear();
+
+    // Unmark loading after a brief delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() => _loadingItems.remove(item));
+      }
+    });
   }
 
   @override
@@ -169,8 +194,17 @@ class _LogFoodPageState extends State<LogFoodPage> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () => _logFood(item),
+                      icon: _loadingItems.contains(item)
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
+                              ),
+                            )
+                          : const Icon(Icons.add),
+                      onPressed: _loadingItems.contains(item) ? null : () => _logFood(item),
                       tooltip: 'Add',
                     ),
                   ],

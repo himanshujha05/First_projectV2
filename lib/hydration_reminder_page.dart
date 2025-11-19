@@ -109,7 +109,12 @@ class _HydrationReminderPageState extends State<HydrationReminderPage> {
               _savePrefs();
               if (_enabled) _startTimer(interval);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Hydration settings saved')),
+                SnackBar(
+                  content: const Text('✓ Hydration settings saved'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.green.shade700,
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
             },
             child: const Text('Save'),

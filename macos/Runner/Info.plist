@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>com.google.android.geo.API_KEY</key>
+	<string>AIzaSyB6Ew262fBnzeasoWFrBESzq5F9A6E96MM</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs your location to show nearby restaurants and healthy food options</string>
 </dict>
 </plist>

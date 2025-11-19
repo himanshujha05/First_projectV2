@@ -43,7 +43,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     final totalCalories = calPerUnit * qty;
     if (totalCalories <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Calories must be greater than 0')),
+        const SnackBar(
+          content: Text('⚠️ Calories must be greater than 0'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -73,13 +77,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logged: $qty × $unitLabel $name • $totalCalories kcal')),
+        SnackBar(
+          content: Text('✓ Logged: $qty × $unitLabel $name\n$totalCalories kcal'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to log: $e')),
+        SnackBar(
+          content: Text('❌ Failed to log: $e'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

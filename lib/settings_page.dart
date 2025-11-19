@@ -43,7 +43,12 @@ class _SettingsPageState extends State<SettingsPage> {
       }, SetOptions(merge: true));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings saved')),
+          SnackBar(
+            content: const Text('✓ Settings saved'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.green.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {

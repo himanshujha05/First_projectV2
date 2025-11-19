@@ -1,13 +1,23 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.first_project">
+
+    <!-- ✅ Needed for Google Maps tiles + network calls -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ✅ Needed for myLocationEnabled + Geolocator -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application
         android:label="first_project"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- ✅ CORRECTLY PLACED Google Maps API key -->
+        <!-- ✅ Google Maps API key (MUST NOT be empty) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyB6Ew262fBnzeasoWFrBESzq5F9A6E96MM"/>
+            android:value="AIzaSyDIYDtCoZIwvJ3C1klogCQhNtLZSHcIWDo" />
 
         <activity
             android:name=".MainActivity"
@@ -34,7 +44,7 @@
             android:value="2" />
     </application>
 
-    <!-- Queries for text processing apps (required by Flutter plugin) -->
+    <!-- Queries for text processing apps (required by some plugins) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
