@@ -24,3 +24,4 @@ macos/Pods/
 # Chrome device profile from flutter run -d chrome
 .dart_tool/chrome-device/
 android/app/google-services.json
+lib/firebase_options.dart
