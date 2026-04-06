@@ -9,7 +9,7 @@ class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
@@ -121,8 +121,8 @@ class _LoginPageState extends State<LoginPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.blue.shade900.withOpacity(0.8),
-              Colors.black.withOpacity(0.7),
+              Colors.blue.shade900.withValues(alpha: 0.8),
+              Colors.black.withValues(alpha: 0.7),
             ],
           ),
         ),
@@ -168,11 +168,11 @@ class _LoginPageState extends State<LoginPage> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 15,
                             offset: const Offset(0, 5),
                           ),

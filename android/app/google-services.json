@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "102032978405",
-    "project_id": "peak-sunset-461808-n2",
-    "storage_bucket": "peak-sunset-461808-n2.firebasestorage.app"
+    "project_number": "1036328355684",
+    "project_id": "firstprojectv2-2025",
+    "storage_bucket": "firstprojectv2-2025.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:102032978405:android:6bd141b9f22ac98fbf7f0c",
+        "mobilesdk_app_id": "1:1036328355684:android:dec478a9b421a12bb39c71",
         "android_client_info": {
           "package_name": "com.example.first_project"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB6Ew262fBnzeasoWFrBESzq5F9A6E96MM"
+          "current_key": "AIzaSyBMurUA_HGWyrO4z3q_4QRloXB4agGkKZ0"
         }
       ],
       "services": {

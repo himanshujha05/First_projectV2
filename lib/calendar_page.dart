@@ -77,7 +77,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
       _updateSelectedEvents();
     } catch (e) {
-      print('Error loading events: $e');
+      debugPrint('Error loading events: $e');
     }
   }
 
@@ -89,7 +89,7 @@ class _CalendarPageState extends State<CalendarPage> {
   int _getTotalCaloriesForDay(DateTime day) {
     final selectedDate = DateTime.utc(day.year, day.month, day.day);
     final dayEvents = _events[selectedDate] ?? [];
-    return dayEvents.fold<int>(0, (sum, event) => sum + (event['calories'] as int? ?? 0));
+    return dayEvents.fold<int>(0, (total, event) => total + (event['calories'] as int? ?? 0));
   }
 
   @override
@@ -291,7 +291,7 @@ class _CalendarPageState extends State<CalendarPage> {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                     ],
                   );
                 },

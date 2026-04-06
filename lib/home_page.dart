@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -28,21 +27,64 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadUserGoal() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (doc.exists && mounted) {
-        final dailyCalories = doc.data()?['dailyCalories'] as int?;
-        if (dailyCalories != null && dailyCalories > 0) {
-          context.read<CalorieTrackerProvider>().setCalorieGoal(dailyCalories);
-        }
+      if (user == null) {
+        debugPrint('[HomePage] No logged-in user; skipping goal load.');
+        return;
       }
-    } catch (e) {
-      print('Error loading goal: $e');
+
+      final docRef =
+          FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      DocumentSnapshot<Map<String, dynamic>> doc;
+
+      try {
+        // 🟢 Try to read from the server first (works in incognito as well).
+        doc = await docRef.get(
+          const GetOptions(source: Source.server),
+        );
+        debugPrint('[HomePage] Loaded goal from server for uid=${user.uid}');
+      } on FirebaseException catch (e) {
+        // If server fails (offline, etc.), fall back to cache instead of crashing.
+        debugPrint(
+          '[HomePage] Server fetch failed: ${e.code} – ${e.message}. '
+          'Trying cache...',
+        );
+        doc = await docRef.get(
+          const GetOptions(source: Source.cache),
+        );
+      }
+
+      if (!mounted) return;
+
+      if (doc.exists) {
+        final data = doc.data();
+        final raw = data?['dailyCalories'];
+
+        int? parsed;
+        if (raw is int) {
+          parsed = raw;
+        } else if (raw is num) {
+          parsed = raw.toInt();
+        }
+
+        if (parsed != null && parsed > 0) {
+          debugPrint('[HomePage] Setting calorie goal to $parsed');
+          context
+              .read<CalorieTrackerProvider>()
+              .setCalorieGoal(parsed);
+        } else {
+          debugPrint(
+            '[HomePage] dailyCalories missing or invalid. Got: $raw. '
+            'Provider will keep its default goal.',
+          );
+        }
+      } else {
+        debugPrint('[HomePage] No user document found for uid=${user.uid}');
+      }
+    } catch (e, st) {
+      // Catch *all* errors so nothing bubbles up and crashes web/mobile.
+      debugPrint('[HomePage] Error loading goal: $e');
+      debugPrint(st.toString());
     }
   }
 
@@ -68,8 +110,8 @@ class _HomePageState extends State<HomePage> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.25),
-                  Colors.black.withOpacity(0.70),
+                  Colors.black.withValues(alpha: 0.25),
+                  Colors.black.withValues(alpha: 0.70),
                 ],
               ),
             ),
@@ -90,7 +132,7 @@ class _HomePageState extends State<HomePage> {
                 SliverToBoxAdapter(child: _CalorieRingCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
-                // NEW: Water meter
+                // Water meter
                 SliverToBoxAdapter(child: _WaterCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
@@ -98,7 +140,7 @@ class _HomePageState extends State<HomePage> {
                 SliverToBoxAdapter(child: _NutrientsCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
-                // NEW: Protein chart
+                // Protein chart
                 SliverToBoxAdapter(child: _ProteinChartCard()),
                 const SliverToBoxAdapter(child: SizedBox(height: 22)),
 
@@ -159,12 +201,12 @@ class _GlassIconButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.18),
+          color: Colors.white.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.28)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, 6),
             )
@@ -235,7 +277,9 @@ class _QuickActions extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => LogFoodPage(
                     onCaloriesLogged: (calories) {
-                      context.read<CalorieTrackerProvider>().addCalories(calories);
+                      context
+                          .read<CalorieTrackerProvider>()
+                          .addCalories(calories);
                     },
                   ),
                 ),
@@ -299,9 +343,9 @@ class _QuickActionChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.22),
+            color: Colors.white.withValues(alpha: 0.22),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.28)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -326,7 +370,6 @@ class _QuickActionChip extends StatelessWidget {
   }
 }
 
-
 /* ---------------------------- Calorie Ring Card -------------------------- */
 
 class _CalorieRingCard extends StatelessWidget {
@@ -342,7 +385,6 @@ class _CalorieRingCard extends StatelessWidget {
           padding: const EdgeInsets.all(22),
           child: Row(
             children: [
-              // ✅ Bigger ring
               SizedBox(
                 width: 160,
                 height: 160,
@@ -421,7 +463,7 @@ class _CalorieRingCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         minHeight: 8,
                         value: progress.clamp(0.0, 1.0),
-                        backgroundColor: Colors.white.withOpacity(0.18),
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           Colors.tealAccent.shade200,
                         ),
@@ -449,7 +491,7 @@ class _CalorieRingPainter extends CustomPainter {
     final radius = (size.shortestSide / 2) - stroke;
 
     final bg = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
@@ -499,7 +541,6 @@ class _WaterCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           child: Row(
             children: [
-              // Bottle / vertical meter
               SizedBox(
                 width: 64,
                 height: 160,
@@ -527,7 +568,7 @@ class _WaterCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         minHeight: 8,
                         value: ratio,
-                        backgroundColor: Colors.white.withOpacity(0.18),
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
                         valueColor: const AlwaysStoppedAnimation<Color>(
                           Colors.lightBlueAccent,
                         ),
@@ -558,7 +599,6 @@ class _WaterCard extends StatelessWidget {
       onTap: () {
         onTap();
 
-        // Show feedback for water intake
         if (label == "Reset") {
           ScaffoldMessenger.of(ctx).showSnackBar(
             SnackBar(
@@ -583,9 +623,9 @@ class _WaterCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.14),
+          color: Colors.white.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.25)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
         ),
         child: Text(
           label,
@@ -610,7 +650,7 @@ class _BottlePainter extends CustomPainter {
       const Radius.circular(18),
     );
     final paintBorder = Paint()
-      ..color = Colors.white.withOpacity(0.7)
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -622,9 +662,8 @@ class _BottlePainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
-      ..color = Colors.lightBlueAccent.withOpacity(0.9);
+      ..color = Colors.lightBlueAccent.withValues(alpha: 0.9);
 
-    // Fill height
     final h = size.height * fill;
     final fillRect = Rect.fromLTWH(0, size.height - h, size.width, h);
     final clip = Path()..addRRect(r);
@@ -634,7 +673,6 @@ class _BottlePainter extends CustomPainter {
     canvas.drawRect(fillRect, paintFill);
     canvas.restore();
 
-    // Border
     canvas.drawRRect(r, paintBorder);
   }
 
@@ -732,9 +770,9 @@ class _NutrientRow extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.16),
+            color: Colors.white.withValues(alpha: 0.16),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withOpacity(0.25)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
           ),
           child: Icon(
             data.icon,
@@ -763,7 +801,7 @@ class _NutrientRow extends StatelessWidget {
                       Container(
                         height: 8,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -805,17 +843,17 @@ class _ProteinChartCard extends StatefulWidget {
 }
 
 class _ProteinChartCardState extends State<_ProteinChartCard> {
-  // simple toggle: Day (single bar) or Week (7 bars)
   bool showWeek = true;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<CalorieTrackerProvider>(
       builder: (context, p, _) {
-        final week = p.proteinWeek; // 7 values, last is today
+        final week = p.proteinWeek;
         final today = p.nutrients['Protein']?['value'] ?? 0;
         final data = showWeek ? week : [today];
-        final labels = showWeek ? ['M', 'T', 'W', 'T', 'F', 'S', 'Today'] : ['Today'];
+        final labels =
+            showWeek ? ['M', 'T', 'W', 'T', 'F', 'S', 'Today'] : ['Today'];
 
         return _GlassCard(
           padding: const EdgeInsets.all(18),
@@ -859,9 +897,9 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.25)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -879,7 +917,7 @@ class _ProteinChartCardState extends State<_ProteinChartCard> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? Colors.white.withOpacity(0.30) : Colors.transparent,
+          color: active ? Colors.white.withValues(alpha: 0.30) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
@@ -904,13 +942,13 @@ class _BarChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final maxVal = (values.reduce((a, b) => a > b ? a : b)).clamp(1, double.infinity);
-    final barPaint = Paint()..color = const Color(0xFFFFB74D); // orange-ish
+    final maxVal =
+        (values.reduce((a, b) => a > b ? a : b)).clamp(1, double.infinity);
+    final barPaint = Paint()..color = const Color(0xFFFFB74D);
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
+      ..color = Colors.white.withValues(alpha: 0.12)
       ..strokeWidth = 1;
 
-    // Grid lines (3)
     for (int i = 1; i <= 3; i++) {
       final y = size.height * (1 - i / 3);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
@@ -920,11 +958,10 @@ class _BarChartPainter extends CustomPainter {
     const gap = 10.0;
     final barWidth = (size.width - gap * (count + 1)) / count;
 
-    // Draw bars + labels
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     for (int i = 0; i < count; i++) {
       final v = values[i];
-      final h = (v / maxVal) * (size.height - 18); // leave space for labels
+      final h = (v / maxVal) * (size.height - 18);
       final x = gap + i * (barWidth + gap);
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, size.height - h - 18, barWidth, h),
@@ -932,7 +969,6 @@ class _BarChartPainter extends CustomPainter {
       );
       canvas.drawRRect(rect, barPaint);
 
-      // label
       textPainter.text = TextSpan(
         text: labels[i],
         style: const TextStyle(fontSize: 10, color: Colors.white70),
@@ -952,8 +988,6 @@ class _BarChartPainter extends CustomPainter {
 
 /* ------------------------------ Nearby Card ------------------------------ */
 
-/* ------------------------------ Nearby Card ------------------------------ */
-
 class _NearbyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -962,17 +996,17 @@ class _NearbyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row (same as before)
           Row(
             children: [
               const _CardTitle(text: "Recommended Nearby"),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.lightBlueAccent.withOpacity(0.2),
+                  color: Colors.lightBlueAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.26)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
                 ),
                 child: const Row(
                   children: [
@@ -991,10 +1025,7 @@ class _NearbyCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // Map preview card with full image visible
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -1007,13 +1038,10 @@ class _NearbyCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Full image
                     Image.asset(
-                      'assets/map_bg.jpg',   // your image
+                      'assets/map_bg.jpg',
                       fit: BoxFit.cover,
                     ),
-
-                    // Gradient only at the bottom so text is readable
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: Container(
@@ -1024,14 +1052,12 @@ class _NearbyCard extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.65),
+                              Colors.black.withValues(alpha: 0.65),
                             ],
                           ),
                         ),
                       ),
                     ),
-
-                    // Centered icon + nicer text
                     Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1075,111 +1101,8 @@ class _NearbyCard extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Existing restaurant tiles (unchanged)
-          const _RestaurantTile(
-            name: "McDonald's",
-            logoUrl:
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/McDonald%27s_logo.svg/1200px-McDonald%27s_logo.svg.png',
-            rating: 4.1,
-            timeAway: "5 min",
-          ),
-          const SizedBox(height: 12),
-          const _RestaurantTile(
-            name: "Subway",
-            logoUrl:
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Subway_2016_logo.svg/2560px-Subway_2016_logo.svg.png',
-            rating: 4.0,
-            timeAway: "7 min",
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RestaurantTile extends StatelessWidget {
-  final String name;
-  final String logoUrl;
-  final double rating;
-  final String timeAway;
-
-  const _RestaurantTile({
-    required this.name,
-    required this.logoUrl,
-    required this.rating,
-    required this.timeAway,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.25)),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 56,
-              height: 56,
-              color: Colors.white,
-              child: CachedNetworkImage(
-                imageUrl: logoUrl,
-                fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const Icon(
-                  Icons.restaurant,
-                  color: Colors.black54,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$rating",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.schedule, color: Colors.white70, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$timeAway away",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // You can add restaurant tiles here if you want
         ],
       ),
     );
@@ -1201,12 +1124,12 @@ class _GlassCard extends StatelessWidget {
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.18),
+          color: Colors.white.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.28)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 14,
               offset: const Offset(0, 8),
             ),

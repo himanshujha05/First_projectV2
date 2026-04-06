@@ -53,7 +53,9 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       final userLatLng = LatLng(position.latitude, position.longitude);
@@ -96,6 +98,7 @@ class _MapScreenState extends State<MapScreen> {
             : LaunchMode.externalApplication,
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open Google Maps')),
       );

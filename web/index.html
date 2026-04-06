@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +70,12 @@
       document.body.innerHTML = '<div style="padding: 20px; font-family: monospace; color: red;"><h2>App Error</h2><p>' + event.reason + '</p></div>';
     });
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+  // Force HTML renderer configuration for iOS Safari compatibility
+  window.flutterConfiguration = {
+    renderer: "html"
+  };
+</script>
+<script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

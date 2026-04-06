@@ -79,7 +79,7 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
         loaded = true;
       }
     } catch (e) {
-      print('Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     } finally {
       if (mounted && !loaded) setState(() => _isLoading = false);
     }
@@ -202,10 +202,10 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
       }, SetOptions(merge: true))
           .then((_) {
         // Success in background - no need to notify
-        print('Profile saved to Firestore');
+        debugPrint('Profile saved to Firestore');
       })
           .catchError((e) {
-        print('Firestore save error: $e');
+        debugPrint('Firestore save error: $e');
       });
 
       // Show success immediately
@@ -353,7 +353,7 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _gender,
+                              initialValue: _gender,
                               decoration: InputDecoration(
                                 labelText: 'Gender',
                                 prefixIcon: const Icon(Icons.wc),
@@ -466,7 +466,7 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _activityLevel,
+                        initialValue: _activityLevel,
                         decoration: InputDecoration(
                           labelText: 'Activity Level',
                           prefixIcon: const Icon(Icons.directions_run),

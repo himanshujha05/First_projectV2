@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(flutter --version)",
+      "Bash(xcodebuild -version)",
+      "Bash(flutter devices:*)",
+      "Bash(flutterfire --version)",
+      "Bash(flutter pub:*)",
+      "Bash(pod install:*)",
+      "Bash(flutter precache:*)",
+      "Bash(flutter clean:*)"
+    ]
+  }
+}

@@ -166,7 +166,7 @@ class _WeeklyCaloriesPageState extends State<WeeklyCaloriesPage> {
                   final rows = buckets.entries.toList()
                     ..sort((a, b) => a.key.compareTo(b.key)); // oldest first for graph
 
-                  final totalWeek = rows.fold<int>(0, (sum, e) => sum + e.value);
+                  final totalWeek = rows.fold<int>(0, (total, e) => total + e.value);
                   final avgDaily = rows.isEmpty ? 0 : (totalWeek / rows.length).round();
                   final maxCalories = rows.fold<int>(0, (max, e) => e.value > max ? e.value : max);
 
@@ -422,8 +422,8 @@ class _WeeklyCaloriesPageState extends State<WeeklyCaloriesPage> {
                                             show: true,
                                             gradient: LinearGradient(
                                               colors: [
-                                                Colors.blue.shade400.withOpacity(0.4),
-                                                Colors.blue.shade700.withOpacity(0.1),
+                                                Colors.blue.shade400.withValues(alpha: 0.4),
+                                                Colors.blue.shade700.withValues(alpha: 0.1),
                                               ],
                                               begin: Alignment.topCenter,
                                               end: Alignment.bottomCenter,
@@ -516,7 +516,7 @@ class _WeeklyCaloriesPageState extends State<WeeklyCaloriesPage> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ],
                           ),
                         ),
